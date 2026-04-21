@@ -1,6 +1,7 @@
 # coding: utf-8
 #
 # Copyright (c) 2026 Gardena GmbH
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """Receiver flow graph for testing with single channel Wi-SUN packet samples."""
 
