@@ -17,7 +17,7 @@ class single_channel_packet_receiver(gr.top_block):
                  gated_power_squelch):
         """Build the flow graph."""
         gr.top_block.__init__(self, "Single Channel Packet Receiver (File Source)")
-        self.src = blocks.file_source(gr.sizeof_gr_complex*1, filename, False, 0, 0)
+        self.src = blocks.file_source(gr.sizeof_gr_complex, filename, False, 0, 0)
         self.scpr = single_channel_receiver(sample_rate=sample_rate,
                                             frequency_offset=frequency_offset,
                                             channel_spacing=channel_spacing,

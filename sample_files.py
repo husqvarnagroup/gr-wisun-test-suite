@@ -14,5 +14,15 @@ fileinfo = {
         100000,
         50000,
         [168, 48, 154, 48] * 5
+    ),
+    'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': (
+        "5 pings from a device to a router. Each ping consists of ping request, ACK, ping response, ACK. "
+        "Devices connected via cables using RF power splitter with attenuators. DUT has 10 dB additional attenuation. "
+        "Additionally has a packet with a DODAG information object as last packet.",
+        1000000,
+        100000,
+        200000,
+        100000,
+        [168, 48, 154, 48] * 5 + [169]
     )
 }
