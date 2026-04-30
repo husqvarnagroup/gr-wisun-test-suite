@@ -33,9 +33,12 @@ def test_ping_packets_50ksps(decimation, gated_power_squelch):
 
 @pytest.mark.parametrize("decimation", [1, 2, 5])
 @pytest.mark.parametrize("gated_power_squelch", [False, True])
-def test_ping_packets_100ksps(decimation, gated_power_squelch):
+@pytest.mark.parametrize("filename", [
+    "samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile",
+    "samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile"
+])
+def test_ping_packets_100ksps(decimation, gated_power_squelch, filename):
     """Test with recorded samples for 5 pings."""
-    filename = "samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile"
     _, sample_rate, frequency_offset, channel_spacing, symbol_rate, expected_packet_lengths = fileinfo[filename]
     samples_per_symbol = sample_rate // decimation // symbol_rate
     rx = single_channel_packet_receiver(filename,
