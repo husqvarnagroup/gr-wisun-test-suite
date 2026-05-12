@@ -9,7 +9,7 @@ fileinfo = {
     # filename: description, sample_rate, frequency_offset, channel_spacing, symbol_rate, expected_packet_lengths
     'samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile': (
         "5 pings from a device to a router. Each ping consists of ping request, ACK, ping response, ACK. "
-        "Device and router were connected via a RF power splitter with a total attenuation of 56 dB.",
+        "Device and router connected via cables & RF power splitter with a total attenuation of 56 dB.",
         1000000,
         100000,
         100000,
@@ -18,7 +18,8 @@ fileinfo = {
     ),
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': (
         "5 pings from a device to a router. Each ping consists of ping request, ACK, ping response, ACK. "
-        "Devices connected via cables using RF power splitter with attenuators. DUT has 10 dB additional attenuation. "
+        "Device and router connected via cables & RF power splitter with a total attenuation of 56 dB. "
+        "DUT has 10 dB additional attenuation. "
         "Additionally has a packet with a DODAG information object as last packet.",
         1000000,
         100000,
@@ -28,7 +29,7 @@ fileinfo = {
     ),
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': (
         "5 pings from a device to a router. Each ping consists of ping request, ACK, ping response, ACK. "
-        "Devices connected using antennas. DUT has 10 dB additional attenuation. "
+        "Device and router connected using antennas. DUT has 10 dB additional attenuation. "
         "Additionally contains a PAN advertisement as last packet.",
         1000000,
         100000,
