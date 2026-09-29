@@ -15,7 +15,8 @@ from sample_files import fileinfo
 def test_ping_packets_50ksps(decimation, gated_power_squelch):
     """Test with recorded samples for 5 pings."""
     filename = "samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile"
-    _, sample_rate, frequency_offset, channel_spacing, symbol_rate, expected_packet_lengths = fileinfo[filename]
+    _, sample_rate, frequency_offset, channel_spacing, symbol_rate, expected_packet_lengths, _ = \
+        fileinfo[filename]
     samples_per_symbol = sample_rate // decimation // symbol_rate
     rx = single_channel_packet_receiver(filename,
                                         sample_rate=sample_rate,
@@ -39,7 +40,8 @@ def test_ping_packets_50ksps(decimation, gated_power_squelch):
 ])
 def test_ping_packets_100ksps(decimation, gated_power_squelch, filename):
     """Test with recorded samples for 5 pings."""
-    _, sample_rate, frequency_offset, channel_spacing, symbol_rate, expected_packet_lengths = fileinfo[filename]
+    _, sample_rate, frequency_offset, channel_spacing, symbol_rate, expected_packet_lengths, _ = \
+        fileinfo[filename]
     samples_per_symbol = sample_rate // decimation // symbol_rate
     rx = single_channel_packet_receiver(filename,
                                         sample_rate=sample_rate,

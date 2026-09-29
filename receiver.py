@@ -14,7 +14,7 @@ class single_channel_packet_receiver(gr.top_block):
     """GNU Radio flow graph for receiving packets on a single channel from a file."""
 
     def __init__(self, filename, sample_rate, frequency_offset, channel_spacing, decimation, samples_per_symbol,
-                 gated_power_squelch):
+                 gated_power_squelch, fec=False):
         """Build the flow graph."""
         gr.top_block.__init__(self, "Single Channel Packet Receiver (File Source)")
         self.src = blocks.file_source(gr.sizeof_gr_complex, filename, False, 0, 0)
@@ -23,6 +23,7 @@ class single_channel_packet_receiver(gr.top_block):
                                             channel_spacing=channel_spacing,
                                             decimation=decimation,
                                             samples_per_symbol=samples_per_symbol,
+                                            fec=fec,
                                             gated_power_squelch=gated_power_squelch)
         self.msg_debug = blocks.message_debug()
 
