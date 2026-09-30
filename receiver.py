@@ -14,10 +14,16 @@ class single_channel_packet_receiver(gr.top_block):
     """GNU Radio flow graph for receiving packets on a single channel from a file."""
 
     def __init__(self, filename, sample_rate, frequency_offset, channel_spacing, decimation, samples_per_symbol,
-                 gated_power_squelch, fec=False):
-        """Build the flow graph."""
+                 gated_power_squelch, fec=False, impairment=None):
+        """Build the flow graph.
+
+        If `impairment` is a `channel.ChannelImpairment`, a channel model applying it is
+        inserted between the file and the receiver. With no impairment the graph is exactly
+        the one the clean-sample tests use.
+        """
         gr.top_block.__init__(self, "Single Channel Packet Receiver (File Source)")
         self.src = blocks.file_source(gr.sizeof_gr_complex, filename, False, 0, 0)
+        self.channel = None if impairment is None else impairment.make_block(sample_rate)
         self.scpr = single_channel_receiver(sample_rate=sample_rate,
                                             frequency_offset=frequency_offset,
                                             channel_spacing=channel_spacing,
@@ -27,7 +33,11 @@ class single_channel_packet_receiver(gr.top_block):
                                             gated_power_squelch=gated_power_squelch)
         self.msg_debug = blocks.message_debug()
 
-        self.connect((self.src, 0), (self.scpr, 0))
+        if self.channel is None:
+            self.connect((self.src, 0), (self.scpr, 0))
+        else:
+            self.connect((self.src, 0), (self.channel, 0))
+            self.connect((self.channel, 0), (self.scpr, 0))
         self.msg_connect((self.scpr, 'pdus'), (self.msg_debug, 'store'))
 
     def get_message_count(self):
