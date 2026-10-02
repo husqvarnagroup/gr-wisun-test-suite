@@ -60,24 +60,50 @@ differ by some 75 dB, and `test_channel.py` pins down the conversion
 against the block itself rather than trusting it.
 
 Carrier frequency offset and sample clock error are exercised through
-the same harness, with the "nothing is invented" check only.
+the same harness. At native recording signal-to-noise ratio neither
+costs a packet within the ranges tested, so alongside the "nothing is
+invented" check, both are also swept at a fixed, already-lossy signal-
+to-noise ratio (`FIXED_IMPAIRMENT_SNR_DB`) with their own decode-rate
+floors, `MINIMUM_DECODE_RATE_CARRIER_OFFSET` and
+`MINIMUM_DECODE_RATE_CLOCK_ERROR`.
 
-Reading the curve
------------------
+Bit error rate
+--------------
 
-The floors come from a sweep, which is a measurement rather than an
-assertion and so is deselected by default:
+The decode-rate floors above are a packet-error-rate measure: a packet
+either comes out intact or it does not count. `test_single_channel_noise.py`
+additionally measures bit error rate among the packets that do still
+decode, against a reference derived from a clean (unimpaired) decode of
+each file (`reference.py`) and checked by its own frame check sequence
+before being trusted. This is a separate question from decode rate — a
+packet that never frames contributes to the packet-error-rate side, not
+to the bit error count, since there is no bit alignment to compare
+without a frame — and the two must not be combined into one rate.
+Ceilings live in `MAXIMUM_BIT_ERROR_RATE`, one per file and signal-to-
+noise ratio.
+
+Reading the curves
+-------------------
+
+The floors and ceilings above come from a sweep, which is a measurement
+rather than an assertion and so is deselected by default:
 
 ```bash
 pytest -m sweep -s
 ```
 
-That prints decode rate against signal-to-noise ratio for every sample
-file. To re-derive the floors after a change to `gr-wisun`, run it
-before and after, and set each floor in `MINIMUM_DECODE_RATE` below the
-new measurement — roughly half of it wherever the baseline is far from
-1.0, since those points sit on a cliff and move a long way for a small
-change anywhere in the chain.
+That prints decode rate or bit error rate against signal-to-noise
+ratio, carrier offset or clock error, for every sample file (one sweep
+function per metric and impairment axis). To re-derive a floor or
+ceiling after a change to `gr-wisun`, run the matching sweep before and
+after, and set each value in the matching dictionary below the new
+measurement — roughly half of it wherever the baseline is far from 1.0
+(for a decode-rate floor), since those points sit on a cliff and move a
+long way for a small change anywhere in the chain. Bit error rate has
+been exactly zero at every point measured so far — a packet that still
+frames and passes its own checks has not been seen to carry a wrong
+bit — so its ceilings are a small fixed margin rather than half the
+baseline.
 
 Note that these numbers are not directly comparable with the
 clean-sample tests: `channel_model` puts an `mmse_resampler` in the
