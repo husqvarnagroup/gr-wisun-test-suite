@@ -35,6 +35,7 @@ import pytest
 from channel import ChannelImpairment, measure_power
 from isolation import run_isolated
 from receiver import single_channel_packet_receiver
+from reference import best_match, hamming_distance, reference_packets
 from sample_files import fileinfo, uses_fec
 
 # Signal-to-noise ratios to test, in dB, wideband at the receiver input — see channel.py for
@@ -91,11 +92,17 @@ MINIMUM_DECODE_RATE = {
 # Carrier frequency offsets to test, in Hz. The receive chain corrects the carrier only
 # after demodulation, so the channel filter ahead of it has to stay wide; these document the
 # tolerance that buys rather than asserting a target.
-CARRIER_OFFSETS_HZ = (0, 5000, 10000, 20000)
+CARRIER_OFFSETS_HZ = (0, 2500, 5000, 10000, 15000, 20000)
 
 # Sample clock errors to test, as the ratio channel_model calls epsilon. 100 ppm either way
 # is far beyond any real crystal; the point is to show the symbol synchronizer tracks.
-CLOCK_ERRORS = (0.9999, 1.0, 1.0001)
+CLOCK_ERRORS = (0.9999, 0.99995, 1.0, 1.00005, 1.0001)
+
+# Signal-to-noise ratio the carrier offset and clock error sweeps are run at. Native SNR is
+# far too clean to show either impairment costing anything within the ranges above, so these
+# combine them with a moderate, already-lossy noise level from SNR_LEVELS -- the fixed point
+# the decode-rate floors below are measured at.
+FIXED_IMPAIRMENT_SNR_DB = 12
 
 DECODE_RATE_POINTS = [(filename, snr_db)
                       for filename, floors in MINIMUM_DECODE_RATE.items()
@@ -123,24 +130,38 @@ def measure_point(filename, snr_db=None, carrier_offset_hz=0.0, epsilon=1.0,
     """Run one point of the grid over every seed.
 
     Returns how many packets were decoded, how many were transmitted, the lengths of
-    anything received that was not a packet the recording contains, and how many coded
-    packets came out with a bad frame check sequence.
+    anything received that was not a packet the recording contains, how many coded packets
+    came out with a bad frame check sequence, and a bit error count against a clean-decode
+    reference (see `reference.py`).
+
+    The bit error count is conditioned on successful framing: a packet that never decodes
+    contributes to `decoded`/`transmitted` (the packet-error-rate side), not to
+    `bit_errors`/`bits_compared`, since there is no bit alignment to compare without a
+    frame. The two must not be combined into one rate.
     """
     expected_lengths = fileinfo[filename][5]
     plausible = set(expected_lengths)
+    references = reference_packets(filename)
     decoded = 0
     implausible = []
     fcs_invalid = 0
+    bit_errors = 0
+    bits_compared = 0
 
     for seed in seeds:
         impairment = ChannelImpairment(filename, snr_db=snr_db, carrier_offset_hz=carrier_offset_hz,
                                        epsilon=epsilon, seed=seed)
         rx = receive(filename, impairment, decimation)
         for packet in rx.get_all_messages():
-            if len(packet) in plausible:
+            payload = bytes(packet)
+            if len(payload) in plausible:
                 decoded += 1
+                match = best_match(payload, references)
+                if match is not None:
+                    bit_errors += hamming_distance(payload, match)
+                    bits_compared += 8 * len(payload)
             else:
-                implausible.append(len(packet))
+                implausible.append(len(payload))
         if uses_fec(fileinfo[filename][6]):
             fcs_invalid += sum(1 for tag in rx.get_all_message_tags('wisun-fcs-valid')
                                if not pmt.to_python(pmt.cdr(tag)))
@@ -150,6 +171,8 @@ def measure_point(filename, snr_db=None, carrier_offset_hz=0.0, epsilon=1.0,
         'transmitted': len(expected_lengths) * len(seeds),
         'implausible': implausible,
         'fcs_invalid': fcs_invalid,
+        'bit_errors': bit_errors,
+        'bits_compared': bits_compared,
     }
 
 
@@ -232,6 +255,162 @@ def test_sample_clock_error_does_not_invent_packets(filename, epsilon):
     assert_no_invented_packets(run_point(filename, epsilon=epsilon))
 
 
+# Minimum decode rate at each carrier offset, at FIXED_IMPAIRMENT_SNR_DB, with the measured
+# baseline beside it -- same convention as MINIMUM_DECODE_RATE, read off
+# test_sweep_decode_rate_vs_carrier_offset. The first FEC sample is left out, same as it is
+# from MINIMUM_DECODE_RATE at this SNR: its baseline is already marginal unimpaired (per the
+# note there) and its 12-packet count makes the rate too coarse to floor meaningfully.
+MINIMUM_DECODE_RATE_CARRIER_OFFSET = {
+    'samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile': {
+        0: 0.85,       # 0.98
+        2500: 0.80,    # 0.95
+        5000: 0.85,    # 0.98
+        10000: 0.85,   # 0.98
+        15000: 0.85,   # 0.98
+        20000: 0.85,   # 0.97
+    },
+    'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': {
+        0: 0.90,       # 1.00
+        2500: 0.90,    # 1.00
+        5000: 0.90,    # 1.00
+        10000: 0.90,   # 1.00
+        15000: 0.85,   # 0.97
+        20000: 0.75,   # 0.90
+    },
+    'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': {
+        0: 0.30,       # 0.51
+        2500: 0.40,    # 0.67
+        5000: 0.40,    # 0.68
+        10000: 0.30,   # 0.56
+        15000: 0.35,   # 0.60
+        20000: 0.20,   # 0.43
+    },
+    'samples/single_channel/ping2_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
+        0: 0.33,       # 0.50
+        2500: 0.33,    # 0.50
+        5000: 0.33,    # 0.50
+        10000: 0.33,   # 0.50
+        15000: 0.33,   # 0.50
+        20000: 0.33,   # 0.50
+    },
+}
+
+# Minimum decode rate at each clock error, at FIXED_IMPAIRMENT_SNR_DB, read off
+# test_sweep_decode_rate_vs_clock_error. ping2's 1.00005 point is left out: its baseline
+# there is a full collapse (0/12), which is a real finding (see docs for step 2's
+# symbol-synchronizer tuning) rather than something a floor of zero could usefully assert.
+MINIMUM_DECODE_RATE_CLOCK_ERROR = {
+    'samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile': {
+        0.9999: 0.90,    # 1.00
+        0.99995: 0.90,   # 1.00
+        1.0: 0.85,       # 0.98
+        1.00005: 0.80,   # 0.95
+        1.0001: 0.90,    # 1.00
+    },
+    'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': {
+        0.9999: 0.90,    # 1.00
+        0.99995: 0.85,   # 0.98
+        1.0: 0.90,       # 1.00
+        1.00005: 0.85,   # 0.97
+        1.0001: 0.90,    # 1.00
+    },
+    'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': {
+        0.9999: 0.25,    # 0.49
+        0.99995: 0.30,   # 0.56
+        1.0: 0.25,       # 0.51
+        1.00005: 0.30,   # 0.59
+        1.0001: 0.25,    # 0.49
+    },
+    'samples/single_channel/ping2_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
+        0.9999: 0.25,    # 0.50
+        0.99995: 0.20,   # 0.42
+        1.0: 0.25,       # 0.50
+        1.0001: 0.25,    # 0.50
+    },
+}
+
+CARRIER_OFFSET_POINTS = [(filename, offset)
+                        for filename, floors in MINIMUM_DECODE_RATE_CARRIER_OFFSET.items()
+                        for offset in floors]
+CLOCK_ERROR_POINTS = [(filename, epsilon)
+                      for filename, floors in MINIMUM_DECODE_RATE_CLOCK_ERROR.items()
+                      for epsilon in floors]
+
+# Maximum bit error rate at each signal-to-noise ratio, with the measured baseline beside
+# it (read off test_sweep_bit_error_rate). A ceiling rather than a floor: bit error rate
+# must not exceed this. Measured bit error rate is exactly zero at every point tested --
+# whenever a packet still frames and passes its own checks (length, path metric, FCS), its
+# payload bits are already right; errors at this signal-to-noise range cost whole packets
+# rather than flipping bits within one that otherwise passes -- so the ceiling is a small
+# margin, not half the baseline the way the decode-rate floors above are. Points use the
+# same SNR levels as MINIMUM_DECODE_RATE where that dict already has an entry, since those
+# are already known-good decode points; the first FEC file gets one even though
+# MINIMUM_DECODE_RATE omits 12 dB for it, since enough packets still decode there to compare.
+MAXIMUM_BIT_ERROR_RATE = {
+    'samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile': {
+        20: 0.0005,    # 0.0000
+        15: 0.0005,    # 0.0000
+        12: 0.0005,    # 0.0000
+        10: 0.0005,    # 0.0000
+    },
+    'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': {
+        20: 0.0005,    # 0.0000
+        15: 0.0005,    # 0.0000
+        12: 0.0005,    # 0.0000
+    },
+    'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': {
+        20: 0.0005,    # 0.0000
+        15: 0.0005,    # 0.0000
+        12: 0.0005,    # 0.0000
+    },
+    'samples/single_channel/ping_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
+        20: 0.0005,    # 0.0000
+        15: 0.0005,    # 0.0000
+        12: 0.0005,    # 0.0000
+    },
+    'samples/single_channel/ping2_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
+        20: 0.0005,    # 0.0000
+        15: 0.0005,    # 0.0000
+        12: 0.0005,    # 0.0000
+    },
+}
+
+BIT_ERROR_RATE_POINTS = [(filename, snr_db)
+                        for filename, ceilings in MAXIMUM_BIT_ERROR_RATE.items()
+                        for snr_db in ceilings]
+
+
+@pytest.mark.parametrize("filename,carrier_offset_hz", CARRIER_OFFSET_POINTS)
+def test_decode_rate_vs_carrier_offset_does_not_regress(filename, carrier_offset_hz):
+    """At a fixed moderate SNR, at least the baseline fraction must still decode."""
+    result = run_point(filename, snr_db=FIXED_IMPAIRMENT_SNR_DB, carrier_offset_hz=carrier_offset_hz)
+    rate = result['decoded'] / result['transmitted']
+    floor = MINIMUM_DECODE_RATE_CARRIER_OFFSET[filename][carrier_offset_hz]
+    assert rate >= floor, \
+        f"decoded {result['decoded']}/{result['transmitted']} = {rate:.2f}, floor is {floor:.2f}"
+
+
+@pytest.mark.parametrize("filename,epsilon", CLOCK_ERROR_POINTS)
+def test_decode_rate_vs_clock_error_does_not_regress(filename, epsilon):
+    """At a fixed moderate SNR, at least the baseline fraction must still decode."""
+    result = run_point(filename, snr_db=FIXED_IMPAIRMENT_SNR_DB, epsilon=epsilon)
+    rate = result['decoded'] / result['transmitted']
+    floor = MINIMUM_DECODE_RATE_CLOCK_ERROR[filename][epsilon]
+    assert rate >= floor, \
+        f"decoded {result['decoded']}/{result['transmitted']} = {rate:.2f}, floor is {floor:.2f}"
+
+
+@pytest.mark.parametrize("filename,snr_db", BIT_ERROR_RATE_POINTS)
+def test_bit_error_rate_does_not_regress(filename, snr_db):
+    """Bit error rate, among packets that still decode, must not exceed the baseline ceiling."""
+    result = run_point(filename, snr_db=snr_db)
+    assert result['bits_compared'] > 0, "no decoded packet could be matched to a reference"
+    rate = result['bit_errors'] / result['bits_compared']
+    ceiling = MAXIMUM_BIT_ERROR_RATE[filename][snr_db]
+    assert rate <= ceiling, \
+        f"{result['bit_errors']}/{result['bits_compared']} bits wrong = {rate:.4f}, ceiling is {ceiling:.4f}"
+
+
 @pytest.mark.sweep
 def test_sweep_decode_rate(capsys):
     """Print decode rate against signal-to-noise ratio for every sample file.
@@ -252,3 +431,65 @@ def test_sweep_decode_rate(capsys):
             native = measure_power(filename).snr_db
             print(f"{filename.split('/')[-1][:52]:52s} {native:6.1f}  "
                   + " ".join(f"{rate:5.2f}" for rate in rates))
+
+
+@pytest.mark.sweep
+def test_sweep_decode_rate_vs_carrier_offset(capsys):
+    """Print decode rate against carrier offset, at a fixed moderate SNR, for every file.
+
+    Deselected by default: this is the measurement the floors in
+    `MINIMUM_DECODE_RATE_CARRIER_OFFSET` are read off. Run it with `pytest -m sweep -s`.
+    """
+    offsets = (0, 2500, 5000, 7500, 10000, 12500, 15000, 17500, 20000)
+    with capsys.disabled():
+        print(f"\ndecode rate vs carrier offset, SNR {FIXED_IMPAIRMENT_SNR_DB} dB, "
+              f"decimation {DECIMATION}, seeds {SEEDS}\n")
+        print(f"{'sample file':52s} " + " ".join(f"{offset:>6d}" for offset in offsets))
+        print(f"{'':52s} " + " ".join(f"{'Hz':>6s}" for _ in offsets))
+        for filename in fileinfo:
+            rates = []
+            for offset in offsets:
+                result = run_point(filename, snr_db=FIXED_IMPAIRMENT_SNR_DB, carrier_offset_hz=offset)
+                rates.append(result['decoded'] / result['transmitted'])
+            print(f"{filename.split('/')[-1][:52]:52s} " + " ".join(f"{rate:6.2f}" for rate in rates))
+
+
+@pytest.mark.sweep
+def test_sweep_decode_rate_vs_clock_error(capsys):
+    """Print decode rate against sample clock error, at a fixed moderate SNR, for every file.
+
+    Deselected by default: this is the measurement the floors in
+    `MINIMUM_DECODE_RATE_CLOCK_ERROR` are read off. Run it with `pytest -m sweep -s`.
+    """
+    epsilons = (0.9999, 0.99993, 0.99995, 0.99998, 1.0, 1.00002, 1.00005, 1.00007, 1.0001)
+    with capsys.disabled():
+        print(f"\ndecode rate vs clock error, SNR {FIXED_IMPAIRMENT_SNR_DB} dB, "
+              f"decimation {DECIMATION}, seeds {SEEDS}\n")
+        print(f"{'sample file':52s} " + " ".join(f"{epsilon:>8g}" for epsilon in epsilons))
+        for filename in fileinfo:
+            rates = []
+            for epsilon in epsilons:
+                result = run_point(filename, snr_db=FIXED_IMPAIRMENT_SNR_DB, epsilon=epsilon)
+                rates.append(result['decoded'] / result['transmitted'])
+            print(f"{filename.split('/')[-1][:52]:52s} " + " ".join(f"{rate:8.2f}" for rate in rates))
+
+
+@pytest.mark.sweep
+def test_sweep_bit_error_rate(capsys):
+    """Print bit error rate against signal-to-noise ratio for every sample file.
+
+    Deselected by default: this is the measurement the ceilings in `MAXIMUM_BIT_ERROR_RATE`
+    are read off. Run it with `pytest -m sweep -s`.
+    """
+    levels = (25, 20, 17, 15, 13, 12, 11, 10, 8, 6)
+    with capsys.disabled():
+        print(f"\nbit error rate, decimation {DECIMATION}, seeds {SEEDS}\n")
+        print(f"{'sample file':52s} " + " ".join(f"{level:>7d}" for level in levels))
+        print(f"{'':52s} " + " ".join(f"{'SNR dB':>7s}" for _ in levels))
+        for filename in fileinfo:
+            rates = []
+            for snr_db in levels:
+                result = run_point(filename, snr_db=snr_db)
+                rates.append(result['bit_errors'] / result['bits_compared'] if result['bits_compared'] else None)
+            print(f"{filename.split('/')[-1][:52]:52s} "
+                  + " ".join("     n/a" if rate is None else f"{rate:8.4f}" for rate in rates))

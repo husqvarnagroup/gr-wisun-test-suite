@@ -29,7 +29,7 @@ import traceback
 # Start method and the modules the server has ready before the first measurement. Preloading
 # is what keeps a child cheap: without it every measurement re-imports GNU Radio.
 START_METHOD = "forkserver"
-PRELOAD = ["channel", "receiver", "sample_files"]
+PRELOAD = ["channel", "receiver", "sample_files", "reference"]
 
 _context = None
 
