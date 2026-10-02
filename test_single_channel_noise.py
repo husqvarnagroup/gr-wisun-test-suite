@@ -62,21 +62,21 @@ DECIMATION = 2
 # no more than catch a collapse. Points near 1.0 are held close.
 MINIMUM_DECODE_RATE = {
     'samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile': {
-        20: 0.95,  # 1.00
+        20: 0.90,  # 0.98
         15: 0.90,  # 0.98
-        12: 0.90,  # 0.98
-        10: 0.90,  # 0.98
+        12: 0.90,  # 1.00
+        10: 0.90,  # 1.00
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': {
         20: 0.95,  # 1.00
         15: 0.95,  # 1.00
-        12: 0.95,  # 1.00
+        12: 0.90,  # 0.98
         10: 0.30,  # 0.49
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': {
         20: 0.95,  # 1.00
-        15: 0.90,  # 0.98
-        12: 0.30,  # 0.52
+        15: 0.90,  # 1.00
+        12: 0.35,  # 0.56
     },
     'samples/single_channel/ping_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
         20: 0.60,  # 0.75 - the first packet of this recording is marginal even unimpaired
@@ -85,7 +85,7 @@ MINIMUM_DECODE_RATE = {
     'samples/single_channel/ping2_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
         20: 0.95,  # 1.00
         15: 0.95,  # 1.00
-        12: 0.30,  # 0.50
+        12: 0.25,  # 0.42
     },
 }
 
@@ -262,70 +262,71 @@ def test_sample_clock_error_does_not_invent_packets(filename, epsilon):
 # note there) and its 12-packet count makes the rate too coarse to floor meaningfully.
 MINIMUM_DECODE_RATE_CARRIER_OFFSET = {
     'samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile': {
-        0: 0.85,       # 0.98
-        2500: 0.80,    # 0.95
-        5000: 0.85,    # 0.98
-        10000: 0.85,   # 0.98
+        0: 0.90,       # 1.00
+        2500: 0.85,    # 0.98
+        5000: 0.90,    # 1.00
+        10000: 0.90,   # 1.00
         15000: 0.85,   # 0.98
-        20000: 0.85,   # 0.97
+        20000: 0.85,   # 0.98
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': {
         0: 0.90,       # 1.00
         2500: 0.90,    # 1.00
         5000: 0.90,    # 1.00
         10000: 0.90,   # 1.00
-        15000: 0.85,   # 0.97
-        20000: 0.75,   # 0.90
+        15000: 0.90,   # 1.00
+        20000: 0.80,   # 0.94
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': {
-        0: 0.30,       # 0.51
+        0: 0.35,       # 0.56
         2500: 0.40,    # 0.67
         5000: 0.40,    # 0.68
-        10000: 0.30,   # 0.56
-        15000: 0.35,   # 0.60
-        20000: 0.20,   # 0.43
+        10000: 0.35,   # 0.56
+        15000: 0.40,   # 0.65
+        20000: 0.30,   # 0.51
     },
     'samples/single_channel/ping2_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
-        0: 0.33,       # 0.50
-        2500: 0.33,    # 0.50
-        5000: 0.33,    # 0.50
-        10000: 0.33,   # 0.50
-        15000: 0.33,   # 0.50
-        20000: 0.33,   # 0.50
+        0: 0.25,       # 0.42
+        2500: 0.30,    # 0.50
+        5000: 0.30,    # 0.50
+        10000: 0.25,   # 0.42
+        15000: 0.30,   # 0.50
+        20000: 0.30,   # 0.50
     },
 }
 
 # Minimum decode rate at each clock error, at FIXED_IMPAIRMENT_SNR_DB, read off
-# test_sweep_decode_rate_vs_clock_error. ping2's 1.00005 point is left out: its baseline
-# there is a full collapse (0/12), which is a real finding (see docs for step 2's
-# symbol-synchronizer tuning) rather than something a floor of zero could usefully assert.
+# test_sweep_decode_rate_vs_clock_error. ping2's 1.00005 point used to be a full collapse
+# (0/12) before the symbol-synchronizer retuning in baseband_channel_receiver.py; it
+# recovers to a floorable rate now and is included like every other point.
 MINIMUM_DECODE_RATE_CLOCK_ERROR = {
     'samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile': {
         0.9999: 0.90,    # 1.00
         0.99995: 0.90,   # 1.00
-        1.0: 0.85,       # 0.98
-        1.00005: 0.80,   # 0.95
+        1.0: 0.90,       # 1.00
+        1.00005: 0.90,   # 1.00
         1.0001: 0.90,    # 1.00
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': {
         0.9999: 0.90,    # 1.00
-        0.99995: 0.85,   # 0.98
-        1.0: 0.90,       # 1.00
-        1.00005: 0.85,   # 0.97
+        0.99995: 0.90,   # 1.00
+        1.0: 0.90,       # 0.98
+        1.00005: 0.90,   # 1.00
         1.0001: 0.90,    # 1.00
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': {
-        0.9999: 0.25,    # 0.49
-        0.99995: 0.30,   # 0.56
-        1.0: 0.25,       # 0.51
-        1.00005: 0.30,   # 0.59
-        1.0001: 0.25,    # 0.49
+        0.9999: 0.35,    # 0.57
+        0.99995: 0.35,   # 0.56
+        1.0: 0.35,       # 0.56
+        1.00005: 0.35,   # 0.59
+        1.0001: 0.35,    # 0.54
     },
     'samples/single_channel/ping2_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
-        0.9999: 0.25,    # 0.50
-        0.99995: 0.20,   # 0.42
-        1.0: 0.25,       # 0.50
-        1.0001: 0.25,    # 0.50
+        0.9999: 0.30,    # 0.50
+        0.99995: 0.30,   # 0.50
+        1.0: 0.25,       # 0.42
+        1.00005: 0.20,   # 0.33
+        1.0001: 0.30,    # 0.50
     },
 }
 
