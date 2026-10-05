@@ -18,10 +18,10 @@ FEC_SAMPLES = [filename for filename in fileinfo if uses_fec(fileinfo[filename][
 # decoding — every packet that is received decodes with no corrections at all.
 DECIMATIONS = [1, 2]
 
-# Note: these tests run with the gated power squelch disabled. Enabling it makes the
-# number of received packets non-deterministic, for coded and uncoded samples alike
-# (an uncoded sample of 21 packets yields anything from 17 to 20), so it cannot be
-# asserted on. That is independent of the FEC support tested here.
+# Note: these tests run with the gated power squelch disabled, the setting the uncoded
+# tests cover both ways. It is not that the gated squelch cannot be asserted on - over
+# every uncoded configuration it now receives every packet of every run - but that
+# nothing here depends on it.
 
 
 @pytest.mark.parametrize("decimation", DECIMATIONS)

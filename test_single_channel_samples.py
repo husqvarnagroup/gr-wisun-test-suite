@@ -24,7 +24,7 @@ def test_ping_packets_50ksps(decimation, gated_power_squelch):
                                         channel_spacing=channel_spacing,
                                         decimation=decimation,
                                         samples_per_symbol=samples_per_symbol,
-                                        gated_power_squelch=False)
+                                        gated_power_squelch=gated_power_squelch)
     rx.process()
     packets = rx.get_all_messages()
     assert len(packets) == len(expected_packet_lengths)
@@ -49,7 +49,7 @@ def test_ping_packets_100ksps(decimation, gated_power_squelch, filename):
                                         channel_spacing=channel_spacing,
                                         decimation=decimation,
                                         samples_per_symbol=samples_per_symbol,
-                                        gated_power_squelch=False)
+                                        gated_power_squelch=gated_power_squelch)
     rx.process()
     packets = rx.get_all_messages()
     assert len(packets) == len(expected_packet_lengths), \
