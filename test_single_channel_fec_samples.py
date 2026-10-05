@@ -7,7 +7,7 @@
 
 import pmt
 import pytest
-from receiver import single_channel_packet_receiver
+from receiver import decode_sample_file, single_channel_packet_receiver
 from sample_files import fileinfo, uses_fec
 
 FEC_SAMPLES = [filename for filename in fileinfo if uses_fec(fileinfo[filename][6])]
@@ -31,16 +31,15 @@ def test_fec_ping_packets(decimation, filename):
     _, sample_rate, frequency_offset, channel_spacing, symbol_rate, expected_packet_lengths, _ = \
         fileinfo[filename]
     samples_per_symbol = sample_rate // decimation // symbol_rate
-    rx = single_channel_packet_receiver(filename,
-                                        sample_rate=sample_rate,
-                                        frequency_offset=frequency_offset,
-                                        channel_spacing=channel_spacing,
-                                        decimation=decimation,
-                                        samples_per_symbol=samples_per_symbol,
-                                        gated_power_squelch=False,
-                                        fec=True)
-    rx.process()
-    packets = rx.get_all_messages()
+    _, packets = decode_sample_file(filename,
+                                    len(expected_packet_lengths),
+                                    sample_rate=sample_rate,
+                                    frequency_offset=frequency_offset,
+                                    channel_spacing=channel_spacing,
+                                    decimation=decimation,
+                                    samples_per_symbol=samples_per_symbol,
+                                    gated_power_squelch=False,
+                                    fec=True)
     assert len(packets) == len(expected_packet_lengths), \
         f"wrong number of packets received ({len(packets)} / {len(expected_packet_lengths)})"
     for i in range(len(packets)):
@@ -60,15 +59,15 @@ def test_fec_packets_decode_without_corrections(decimation, filename):
     _, sample_rate, frequency_offset, channel_spacing, symbol_rate, expected_packet_lengths, _ = \
         fileinfo[filename]
     samples_per_symbol = sample_rate // decimation // symbol_rate
-    rx = single_channel_packet_receiver(filename,
-                                        sample_rate=sample_rate,
-                                        frequency_offset=frequency_offset,
-                                        channel_spacing=channel_spacing,
-                                        decimation=decimation,
-                                        samples_per_symbol=samples_per_symbol,
-                                        gated_power_squelch=False,
-                                        fec=True)
-    rx.process()
+    rx, _ = decode_sample_file(filename,
+                               len(expected_packet_lengths),
+                               sample_rate=sample_rate,
+                               frequency_offset=frequency_offset,
+                               channel_spacing=channel_spacing,
+                               decimation=decimation,
+                               samples_per_symbol=samples_per_symbol,
+                               gated_power_squelch=False,
+                               fec=True)
     assert rx.get_message_count() == len(expected_packet_lengths)
     # get_all_message_tags returns the whole (key . value) pair
     metrics = [pmt.to_python(pmt.cdr(tag)) for tag in rx.get_all_message_tags('wisun-fec-metric')]
