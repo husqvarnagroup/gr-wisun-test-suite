@@ -60,37 +60,39 @@ DECIMATION = 2
 # Points whose baseline is well below 1.0 sit on a cliff and move a long way for a small
 # change anywhere in the chain, so their floors are set at roughly half the baseline and do
 # no more than catch a collapse. Points near 1.0 are held close.
-# Floors marked "was" also pin down the channel filter: they are above what the previous,
-# wider filter managed, so reverting it fails them rather than merely losing margin.
+# Floors whose comment names an older value also pin that change down: they sit above what
+# the wider channel filter or the 24-bit preamble requirement managed, so reverting either
+# fails them rather than merely eating margin.
 MINIMUM_DECODE_RATE = {
     'samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile': {
-        20: 0.90,  # 0.97
-        15: 0.90,  # 0.98
+        20: 0.90,  # 0.98
+        15: 0.90,  # 1.00
         12: 0.90,  # 1.00
         10: 0.90,  # 1.00
-        6: 0.55,   # 0.65, was 0.50
+        6: 0.55,   # 0.67, 0.50 with the wider filter
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': {
         20: 0.95,  # 1.00
         15: 0.95,  # 1.00
         12: 0.95,  # 1.00
-        10: 0.60,  # 0.70, was 0.49
+        10: 0.75,  # 0.79, 0.49 with the wider filter, 0.70 at a 24-bit preamble
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': {
         20: 0.95,  # 1.00
         15: 0.90,  # 1.00
-        12: 0.70,  # 0.84, was 0.56
+        12: 0.70,  # 0.89, 0.56 with the wider filter
     },
     'samples/single_channel/ping_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
-        20: 0.60,  # 0.75 - the first packet of this recording is marginal even unimpaired
-        15: 0.60,  # 0.83
-        13: 0.45,  # 0.58, was 0.33
+        20: 0.60,  # 0.75 - this recording's 169-octet frame needs a short preamble
+        15: 0.75,  # 0.92, 0.83 at a 24-bit preamble
+        13: 0.65,  # 0.75, 0.33 with the wider filter, 0.58 at a 24-bit preamble
+        12: 0.45,  # 0.58, 0.33 at a 24-bit preamble
     },
     'samples/single_channel/ping2_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
         20: 0.95,  # 1.00
         15: 0.95,  # 1.00
-        13: 0.70,  # 0.83, was 0.67
-        12: 0.35,  # 0.50
+        13: 0.70,  # 0.83, 0.67 with the wider filter
+        12: 0.55,  # 0.67, 0.50 at a 24-bit preamble
     },
 }
 
