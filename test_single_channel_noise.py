@@ -60,38 +60,43 @@ DECIMATION = 2
 # Points whose baseline is well below 1.0 sit on a cliff and move a long way for a small
 # change anywhere in the chain, so their floors are set at roughly half the baseline and do
 # no more than catch a collapse. Points near 1.0 are held close.
+# Floors marked "was" also pin down the channel filter: they are above what the previous,
+# wider filter managed, so reverting it fails them rather than merely losing margin.
 MINIMUM_DECODE_RATE = {
     'samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile': {
-        20: 0.90,  # 0.98
+        20: 0.90,  # 0.97
         15: 0.90,  # 0.98
         12: 0.90,  # 1.00
         10: 0.90,  # 1.00
+        6: 0.55,   # 0.65, was 0.50
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': {
         20: 0.95,  # 1.00
         15: 0.95,  # 1.00
-        12: 0.90,  # 0.98
-        10: 0.30,  # 0.49
+        12: 0.95,  # 1.00
+        10: 0.60,  # 0.70, was 0.49
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': {
         20: 0.95,  # 1.00
         15: 0.90,  # 1.00
-        12: 0.35,  # 0.56
+        12: 0.70,  # 0.84, was 0.56
     },
     'samples/single_channel/ping_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
         20: 0.60,  # 0.75 - the first packet of this recording is marginal even unimpaired
         15: 0.60,  # 0.83
+        13: 0.45,  # 0.58, was 0.33
     },
     'samples/single_channel/ping2_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
         20: 0.95,  # 1.00
         15: 0.95,  # 1.00
-        12: 0.25,  # 0.42
+        13: 0.70,  # 0.83, was 0.67
+        12: 0.35,  # 0.50
     },
 }
 
-# Carrier frequency offsets to test, in Hz. The receive chain corrects the carrier only
-# after demodulation, so the channel filter ahead of it has to stay wide; these document the
-# tolerance that buys rather than asserting a target.
+# Carrier frequency offsets to test, in Hz. Nothing corrects the carrier ahead of the
+# channel filter, so its cutoff has to leave room for the offset on top of the signal; these
+# measure how much room there turned out to be.
 CARRIER_OFFSETS_HZ = (0, 2500, 5000, 10000, 15000, 20000)
 
 # Sample clock errors to test, as the ratio channel_model calls epsilon. 100 ppm either way
@@ -263,11 +268,11 @@ def test_sample_clock_error_does_not_invent_packets(filename, epsilon):
 MINIMUM_DECODE_RATE_CARRIER_OFFSET = {
     'samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile': {
         0: 0.90,       # 1.00
-        2500: 0.85,    # 0.98
+        2500: 0.90,    # 1.00
         5000: 0.90,    # 1.00
-        10000: 0.90,   # 1.00
-        15000: 0.85,   # 0.98
-        20000: 0.85,   # 0.98
+        10000: 0.90,   # 0.98
+        15000: 0.90,   # 0.98
+        20000: 0.85,   # 0.97
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': {
         0: 0.90,       # 1.00
@@ -275,23 +280,23 @@ MINIMUM_DECODE_RATE_CARRIER_OFFSET = {
         5000: 0.90,    # 1.00
         10000: 0.90,   # 1.00
         15000: 0.90,   # 1.00
-        20000: 0.80,   # 0.94
+        20000: 0.80,   # 0.89
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': {
-        0: 0.35,       # 0.56
-        2500: 0.40,    # 0.67
-        5000: 0.40,    # 0.68
-        10000: 0.35,   # 0.56
-        15000: 0.40,   # 0.65
-        20000: 0.30,   # 0.51
+        0: 0.70,       # 0.84, was 0.56
+        2500: 0.70,    # 0.83, was 0.67
+        5000: 0.70,    # 0.84, was 0.68
+        10000: 0.70,   # 0.86, was 0.56
+        15000: 0.65,   # 0.81, was 0.65
+        20000: 0.55,   # 0.71, was 0.51
     },
     'samples/single_channel/ping2_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
-        0: 0.25,       # 0.42
-        2500: 0.30,    # 0.50
-        5000: 0.30,    # 0.50
-        10000: 0.25,   # 0.42
-        15000: 0.30,   # 0.50
-        20000: 0.30,   # 0.50
+        0: 0.35,       # 0.50
+        2500: 0.40,    # 0.58
+        5000: 0.45,    # 0.67, was 0.50
+        10000: 0.45,   # 0.67, was 0.42
+        15000: 0.40,   # 0.58
+        20000: 0.35,   # 0.50
     },
 }
 
@@ -304,29 +309,29 @@ MINIMUM_DECODE_RATE_CLOCK_ERROR = {
         0.9999: 0.90,    # 1.00
         0.99995: 0.90,   # 1.00
         1.0: 0.90,       # 1.00
-        1.00005: 0.90,   # 1.00
+        1.00005: 0.85,   # 0.95
         1.0001: 0.90,    # 1.00
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': {
-        0.9999: 0.90,    # 1.00
+        0.9999: 0.90,    # 0.98
         0.99995: 0.90,   # 1.00
-        1.0: 0.90,       # 0.98
+        1.0: 0.90,       # 1.00
         1.00005: 0.90,   # 1.00
-        1.0001: 0.90,    # 1.00
+        1.0001: 0.90,    # 0.98
     },
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': {
-        0.9999: 0.35,    # 0.57
-        0.99995: 0.35,   # 0.56
-        1.0: 0.35,       # 0.56
-        1.00005: 0.35,   # 0.59
-        1.0001: 0.35,    # 0.54
+        0.9999: 0.65,    # 0.78, was 0.57
+        0.99995: 0.70,   # 0.86, was 0.56
+        1.0: 0.70,       # 0.84, was 0.56
+        1.00005: 0.65,   # 0.81, was 0.59
+        1.0001: 0.70,    # 0.83, was 0.54
     },
     'samples/single_channel/ping2_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': {
-        0.9999: 0.30,    # 0.50
-        0.99995: 0.30,   # 0.50
-        1.0: 0.25,       # 0.42
-        1.00005: 0.20,   # 0.33
-        1.0001: 0.30,    # 0.50
+        0.9999: 0.40,    # 0.58
+        0.99995: 0.35,   # 0.50
+        1.0: 0.35,       # 0.50
+        1.00005: 0.30,   # 0.42
+        1.0001: 0.40,    # 0.58
     },
 }
 
