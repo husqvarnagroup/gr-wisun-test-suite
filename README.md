@@ -61,11 +61,20 @@ single-channel tests never reach. Two properties only show up there:
 - **channels the regulatory mask excludes.** Devices do transmit there,
   so the receiver listens and reports; a test asserts packets on those
   channels come through rather than being dropped.
+- **what too much gain does.** One recording was deliberately made at too
+  high a gain. Its input clips, one request was retransmitted after going
+  unacknowledged, and three frames appear a second time 5 MHz above their
+  own channel, 25 to 27 dB down — the spurious emission of one of the two
+  devices, which the gain lifted above the noise rather than created.
+  Tests pin the clipping count and the frames whose check sequence fails.
 
 The receiver's output is a pcapng stream rather than bare packets, so
 `pcapng.py` reads it the way Wireshark would. That also checks the
 stream itself — a repeated interface description block, say, fails a
-test here rather than being noticed in Wireshark.
+test here rather than being noticed in Wireshark. Each packet carries its
+own frame check sequence, the TAP header says how wide it is, and the
+packet flags carry the receiver's own verdict, so a corrupted frame can
+be told from a good one.
 
 Tests with a channel model
 ==========================

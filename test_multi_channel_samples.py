@@ -47,8 +47,12 @@ def receive(filename, oversampling):
         'per_channel': dict(per_channel),
         'total': len(packets),
         'bit_rates': sorted({packet.bit_rate for packet in packets}),
+        'fcs_lengths': sorted({packet.fcs_length for packet in packets}),
+        'crc_errors': sorted((packet.channel, len(packet.payload))
+                             for packet in packets if packet.crc_error),
         'section_headers': counts[SECTION_HEADER_BLOCK],
         'interface_descriptions': counts[INTERFACE_DESCRIPTION_BLOCK],
+        'clipped_input_samples': receiver.mcpr.clipping_detector.clipped_samples(),
     }
 
 
@@ -72,7 +76,7 @@ def test_the_default_oversampling_receives_most_packets(filename):
     sample = multi_channel_fileinfo[filename]
     result = run_isolated(receive, filename, None)
 
-    assert result['total'] >= expected_packet_count(sample) - 2
+    assert result['total'] >= sample.packets_at_default
 
 
 @pytest.mark.parametrize("filename", SAMPLES)
@@ -111,3 +115,33 @@ def test_the_pcapng_stream_is_well_formed(filename):
 
     config = WiSunConfiguration(sample.regulatory_domain, sample.channel_plan_id, sample.phy_mode_id)
     assert result['bit_rates'] == [config.radio_configuration().data_rate()]
+
+
+@pytest.mark.parametrize("filename", SAMPLES)
+def test_a_failed_frame_check_is_reported(filename):
+    """A frame whose check sequence does not verify must be marked as such.
+
+    The frame carries its own check sequence, so a reader can verify it; the receiver's
+    verdict travels alongside in the packet flags. Without either, a corrupted frame reaches
+    Wireshark looking exactly like a good one - which is how the copies in the high-gain
+    recording would otherwise pass for real traffic.
+    """
+    sample = multi_channel_fileinfo[filename]
+    result = run_isolated(receive, filename, FULL_OVERSAMPLING)
+
+    assert result['crc_errors'] == sorted(sample.crc_error_packets)
+    # the FCS width has to be declared, or a reader cannot find the check sequence at all
+    assert result['fcs_lengths'] == [4]
+
+
+@pytest.mark.parametrize("filename", SAMPLES)
+def test_clipping_is_noticed(filename):
+    """A clipping input must be counted, and a clean one must not be.
+
+    Nothing else in the receiver reacts to too much gain, so this is the only warning that
+    the signal is being distorted before any of it is demodulated.
+    """
+    sample = multi_channel_fileinfo[filename]
+    result = run_isolated(receive, filename, FULL_OVERSAMPLING)
+
+    assert result['clipped_input_samples'] == sample.clipped_input_samples
