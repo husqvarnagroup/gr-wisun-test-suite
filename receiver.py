@@ -3,10 +3,11 @@
 # Copyright (c) 2026 Gardena GmbH
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Receiver flow graph for testing with single channel Wi-SUN packet samples."""
+"""Receiver flow graphs for testing with recorded Wi-SUN packet samples."""
 
 from gnuradio import blocks, gr
-from gnuradio.wisun import single_channel_receiver
+from gnuradio.wisun import multi_channel_receiver, single_channel_receiver
+from gnuradio.wisun.parameters import SUN_FSK_CHANNEL_PAGE, WISUN_FREQUENCY_BAND_802154_MAPPING
 import pmt
 
 
@@ -98,3 +99,54 @@ def decode_sample_file(filename, expected_packets, attempts=3, **kwargs):
         if len(packets) > len(best[1]):
             best = (receiver, packets)
     return best
+
+
+class multi_channel_packet_receiver(gr.top_block):
+    """GNU Radio flow graph for receiving several Wi-SUN channels from a file.
+
+    The channel set, centre frequency and sample rate come from a `WiSunConfiguration` and
+    the recording itself, so this exercises the same `multi_channel_receiver` the sniffer
+    applications build. Its output is a pcapng stream; see `pcapng.py`.
+    """
+
+    def __init__(self, filename, wisun_config, sample_rate, center_frequency, oversampling=None):
+        """Build the flow graph."""
+        gr.top_block.__init__(self, "Multi Channel Packet Receiver (File Source)")
+        radio_config = wisun_config.radio_configuration()
+        metadata = {
+            "packet-bit-rate": radio_config.data_rate(),
+            "packet-channel-page": SUN_FSK_CHANNEL_PAGE,
+            "packet-phy-band": WISUN_FREQUENCY_BAND_802154_MAPPING[wisun_config.channel_plan_id],
+        }
+        if radio_config.is_valid_802154_phy_mode():
+            phy_type, phy_mode = radio_config.get_802154_phy_type_mode()
+            metadata['packet-phy-type'] = phy_type
+            metadata['packet-phy-mode'] = phy_mode
+
+        arguments = {} if oversampling is None else {"oversampling": oversampling}
+        self.src = blocks.file_source(gr.sizeof_gr_complex, filename, False, 0, 0)
+        self.mcpr = multi_channel_receiver(sample_rate,
+                                          center_frequency,
+                                          radio_config.channel_0_center_frequency,
+                                          radio_config.channel_spacing,
+                                          radio_config.symbol_rate,
+                                          radio_config.channels,
+                                          fec=wisun_config.uses_fec(),
+                                          metadata=metadata,
+                                          channels_outside_mask=wisun_config.channels_outside_mask(),
+                                          **arguments)
+        self.msg_debug = blocks.message_debug()
+
+        self.connect((self.src, 0), (self.mcpr, 0))
+        self.msg_connect((self.mcpr, 'pdus'), (self.msg_debug, 'store'))
+
+    def blocks(self):
+        """Return every pcapng block the receiver emitted, as bytes."""
+        return [bytes(pmt.u8vector_elements(pmt.cdr(self.msg_debug.get_message(i))))
+                for i in range(self.msg_debug.num_messages())]
+
+    def process(self):
+        """Process samples (and run to completion)."""
+        self.start()
+        self.wait()
+        self.stop()

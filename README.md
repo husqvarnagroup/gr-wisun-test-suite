@@ -32,6 +32,41 @@ rate, content, ..) can be found in `sample_files.py`.
 
 The samples have been recorded with a Nuand bladeRF 2.0 micro.
 
+`samples/single_channel/` holds recordings of one channel, described by
+a tuning offset in `fileinfo`. `samples/multi_channel/` holds wideband
+recordings covering a whole channel plan, described by their Wi-SUN
+configuration in `multi_channel_fileinfo` — the channel set, spacing and
+symbol rate follow from the regulatory domain, channel plan and PHY
+mode, as they do for the sniffer applications.
+
+A wideband recording costs 64 MB per second at 8 MS/s, so the idle
+stretches between packets are cut out, leaving a short dead time around
+each burst. Verify after cutting that the receiver still decodes the
+same packets: the squelch tracks a noise floor and the DC correction
+estimates per burst, so both need some idle signal to work with.
+
+Tests covering many channels
+============================
+
+`test_multi_channel_samples.py` drives `multi_channel_receiver`, i.e.
+the polyphase channelizer plus one receive chain per channel, which the
+single-channel tests never reach. Two properties only show up there:
+
+- **the samples per symbol the channelizer leaves.** Its normal output
+  rate is the channel spacing, which is twice the symbol rate for every
+  Wi-SUN FSK mode, and 2 samples per symbol costs packets. The complete
+  decode is asserted at the oversampling that achieves it; the default,
+  which trades packets for the headroom to keep up with an SDR, gets a
+  floor of its own.
+- **channels the regulatory mask excludes.** Devices do transmit there,
+  so the receiver listens and reports; a test asserts packets on those
+  channels come through rather than being dropped.
+
+The receiver's output is a pcapng stream rather than bare packets, so
+`pcapng.py` reads it the way Wireshark would. That also checks the
+stream itself — a repeated interface description block, say, fails a
+test here rather than being noticed in Wireshark.
+
 Tests with a channel model
 ==========================
 
