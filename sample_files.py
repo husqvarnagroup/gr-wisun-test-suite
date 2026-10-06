@@ -90,7 +90,10 @@ MultiChannelSample = namedtuple("MultiChannelSample", [
     "regulatory_domain",
     "channel_plan_id",
     "phy_mode_id",
-    "expected_packets",     # Wi-SUN channel -> payload lengths, in the order received
+    "expected_packets",         # Wi-SUN channel -> payload lengths, in the order received
+    "packets_at_default",       # how many the default channelizer oversampling gets
+    "clipped_input_samples",    # samples at full scale, i.e. how hard the input was driven
+    "crc_error_packets",        # (channel, length) of the frames whose FCS does not verify
 ])
 
 multi_channel_fileinfo = {
@@ -119,7 +122,46 @@ multi_channel_fileinfo = {
                 20: [142, 56, 167, 50],
                 28: [167, 50],
                 31: [142, 56],
-            }),
+            },
+            packets_at_default=18,
+            clipped_input_samples=0,
+            crc_error_packets=[]),
+    'samples/multi_channel/ping_5x_8Msps_866.7MHz_EU_channel_plan_33_phy_type_1_phy_mode_3_high_gain.cfile':
+        MultiChannelSample(
+            description=(
+                "The same exchange as above, recorded at too high a gain, which is what makes it worth keeping. "
+                "Three things show up that the other recording does not have. One burst reaches full scale over "
+                "1.4 % of its samples, so the input clips. One ping request went unacknowledged and was "
+                "retransmitted with the same MAC sequence number, which is why there are 21 transmissions rather "
+                "than 20. And three frames appear a second time 5.0 MHz above their own channel, 25 to 27 dB "
+                "down: channel 1 again on 26, channel 2 on 27 and channel 4 on 29. All three are frames of the "
+                "device whose crystal is 24 ppm low, while the other device - which arrives some 8 dB stronger - "
+                "produces none, so they are that transmitter's spurious emission rather than anything in the "
+                "receiver. The gain only lifted them above the noise. Two of the three are corrupted and their "
+                "frame check sequence says so; the third is bit-exact and indistinguishable from a real frame."),
+            sample_rate=8_000_000,
+            center_frequency=866_700_000,
+            regulatory_domain="EU",
+            channel_plan_id=33,
+            phy_mode_id=0x13,
+            expected_packets={
+                1: [167, 50],
+                2: [167],
+                4: [142, 56],
+                5: [167, 50],
+                11: [142, 56, 167, 50],
+                14: [167, 50],
+                15: [142, 56],
+                20: [167, 50],
+                21: [142, 56],
+                26: [167],          # a copy of channel 1's request
+                27: [167],          # a copy of channel 2's request
+                29: [56],           # a copy of channel 4's acknowledgement
+                30: [142, 56],
+            },
+            packets_at_default=19,
+            clipped_input_samples=10252,
+            crc_error_packets=[(26, 167), (27, 167)]),
 }
 
 

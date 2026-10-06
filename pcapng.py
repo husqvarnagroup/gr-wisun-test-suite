@@ -32,7 +32,13 @@ EPB_HEADER_LENGTH = 28
 # the TAP header starts with version, reserved and its own length
 TAP_HEADER_LENGTH = 4
 
-Packet = namedtuple("Packet", ["channel", "bit_rate", "rssi", "payload"])
+# enhanced packet block options, and the bits of the flags option the receiver sets
+# ([pcapng] 4.3.1, where bit 0 is the least significant)
+OPTION_CODE_END_OF_OPTIONS = 0
+OPTION_CODE_EPB_FLAGS = 2
+EPB_FLAGS_CRC_ERROR = 1 << 24
+
+Packet = namedtuple("Packet", ["channel", "bit_rate", "rssi", "payload", "crc_error", "fcs_length"])
 
 
 def block_type(block):
@@ -61,7 +67,22 @@ def parse_packet(block):
         offset += 4 + (tlv_length + 3) // 4 * 4
 
     payload = block[EPB_HEADER_LENGTH + tap_length:EPB_HEADER_LENGTH + captured_length]
-    return Packet(channel=channel, bit_rate=bit_rate, rssi=rssi, payload=payload)
+
+    # the options follow the payload and its padding to a multiple of four
+    crc_error = fcs_length = None
+    offset = EPB_HEADER_LENGTH + (captured_length + 3) // 4 * 4
+    while offset + 4 <= len(block) - 4:
+        code, length = struct.unpack("<HH", block[offset:offset + 4])
+        if code == OPTION_CODE_END_OF_OPTIONS:
+            break
+        if code == OPTION_CODE_EPB_FLAGS:
+            flags = struct.unpack("<I", block[offset + 4:offset + 8])[0]
+            crc_error = bool(flags & EPB_FLAGS_CRC_ERROR)
+            fcs_length = (flags >> 5) & 0xf
+        offset += 4 + (length + 3) // 4 * 4
+
+    return Packet(channel=channel, bit_rate=bit_rate, rssi=rssi, payload=payload,
+                  crc_error=crc_error, fcs_length=fcs_length)
 
 
 def parse_stream(blocks):
