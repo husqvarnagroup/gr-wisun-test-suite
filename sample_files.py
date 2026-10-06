@@ -12,7 +12,8 @@ fileinfo = {
     #           phy_mode_id
     #
     # Note: expected_packet_lengths are the lengths of the PDUs the receiver produces. Those hold the SFD, the PHY
-    # header and the payload without its frame check sequence, so each one is the frame length from the PHY header.
+    # header and the whole PSDU, frame check sequence included, so each one is the frame length from the PHY header
+    # plus the 4 octets of SFD and PHY header.
     'samples/single_channel/ping_1Msps_863MHz_50ksps_channel0.cfile': (
         "5 pings from a device to a router. Each ping consists of ping request, ACK, ping response, ACK. "
         "Device and router connected via cables & RF power splitter with a total attenuation of 56 dB.",
@@ -20,7 +21,7 @@ fileinfo = {
         100000,
         100000,
         50000,
-        [168, 48, 154, 48] * 5,
+        [172, 52, 158, 52] * 5,
         0x01
     ),
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0.cfile': (
@@ -32,7 +33,7 @@ fileinfo = {
         100000,
         200000,
         100000,
-        [168, 48, 154, 48] * 5 + [169],
+        [172, 52, 158, 52] * 5 + [173],
         0x03
     ),
     'samples/single_channel/ping_1Msps_863MHz_100ksps_channel0_on_air.cfile': (
@@ -43,7 +44,7 @@ fileinfo = {
         100000,
         200000,
         100000,
-        [168, 48, 154, 48] * 5 + [70],
+        [172, 52, 158, 52] * 5 + [74],
         0x03
     ),
     'samples/single_channel/ping_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': (
@@ -53,7 +54,7 @@ fileinfo = {
         100000,
         200000,
         100000,
-        [169, 50, 142, 56],
+        [173, 54, 146, 60],
         0x13
     ),
     'samples/single_channel/ping2_1Msps_863MHz_PhyModeId_0x13_channel_0.cfile': (
@@ -63,7 +64,7 @@ fileinfo = {
         100000,
         200000,
         100000,
-        [169, 50, 142, 56],
+        [173, 54, 146, 60],
         0x13
     ),
 }
@@ -110,14 +111,14 @@ multi_channel_fileinfo = {
             channel_plan_id=33,
             phy_mode_id=0x13,
             expected_packets={
-                0: [138, 52],
-                8: [163, 46],
-                15: [163, 46],
-                18: [138, 52],
-                19: [163, 46, 138, 52],
-                20: [138, 52, 163, 46],
-                28: [163, 46],
-                31: [138, 52],
+                0: [142, 56],
+                8: [167, 50],
+                15: [167, 50],
+                18: [142, 56],
+                19: [167, 50, 142, 56],
+                20: [142, 56, 167, 50],
+                28: [167, 50],
+                31: [142, 56],
             }),
 }
 
