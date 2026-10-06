@@ -5,6 +5,8 @@
 
 """Information about sample files."""
 
+from collections import namedtuple
+
 fileinfo = {
     # filename: description, sample_rate, frequency_offset, channel_spacing, symbol_rate, expected_packet_lengths,
     #           phy_mode_id
@@ -73,3 +75,53 @@ def uses_fec(phy_mode_id):
     PhyType 1 is FSK with NRNSC FEC, i.e. the uncoded PhyType 0 modes plus coding.
     """
     return phy_mode_id >> 4 == 1
+
+
+# Recordings covering many channels at once, for the multi-channel receiver.
+#
+# These are described by their Wi-SUN configuration rather than by a tuning offset: the
+# channel set, spacing and symbol rate all follow from the regulatory domain, channel plan
+# and PHY mode, which is also how the sniffer applications are told what to receive.
+MultiChannelSample = namedtuple("MultiChannelSample", [
+    "description",
+    "sample_rate",
+    "center_frequency",
+    "regulatory_domain",
+    "channel_plan_id",
+    "phy_mode_id",
+    "expected_packets",     # Wi-SUN channel -> payload lengths, in the order received
+])
+
+multi_channel_fileinfo = {
+    'samples/multi_channel/ping_5x_8Msps_866.7MHz_EU_channel_plan_33_phy_type_1_phy_mode_3.cfile':
+        MultiChannelSample(
+            description=(
+                "5 pings between a device and a router, frequency hopping over channel plan 33. Each ping is a "
+                "request, its ACK, the reply and its ACK; the request and its ACK share a channel, the reply and "
+                "its ACK another. The idle stretches have been cut out, leaving 60 ms around each of the five "
+                "groups, which was measured not to change what the receiver decodes. Two of the twenty packets "
+                "are on channels 28 and 31, which the EU channel mask for this plan excludes - devices do "
+                "transmit there. The requesting device's crystal is about 24 ppm low, the other about 5 ppm "
+                "high. Note that the capture's centre frequency is 200 kHz above what gqrx was set to "
+                "(866.5 MHz); 866.7 MHz is the value under which every packet lands on a channel of the plan."),
+            sample_rate=8_000_000,
+            center_frequency=866_700_000,
+            regulatory_domain="EU",
+            channel_plan_id=33,
+            phy_mode_id=0x13,
+            expected_packets={
+                0: [138, 52],
+                8: [163, 46],
+                15: [163, 46],
+                18: [138, 52],
+                19: [163, 46, 138, 52],
+                20: [138, 52, 163, 46],
+                28: [163, 46],
+                31: [138, 52],
+            }),
+}
+
+
+def expected_packet_count(sample):
+    """Return how many packets a multi-channel recording holds."""
+    return sum(len(lengths) for lengths in sample.expected_packets.values())
