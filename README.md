@@ -66,7 +66,9 @@ single-channel tests never reach. Two properties only show up there:
   unacknowledged, and three frames appear a second time 5 MHz above their
   own channel, 25 to 27 dB down — the spurious emission of one of the two
   devices, which the gain lifted above the noise rather than created.
-  Tests pin the clipping count and the frames whose check sequence fails.
+  Tests pin the clipping count, the frames whose check sequence fails, and
+  the one copy that is bit-exact and so can only be found by having been
+  received already.
 
 The receiver's output is a pcapng stream rather than bare packets, so
 `pcapng.py` reads it the way Wireshark would. That also checks the

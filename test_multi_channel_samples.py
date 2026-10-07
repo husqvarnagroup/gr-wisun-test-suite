@@ -53,6 +53,7 @@ def receive(filename, oversampling):
         'section_headers': counts[SECTION_HEADER_BLOCK],
         'interface_descriptions': counts[INTERFACE_DESCRIPTION_BLOCK],
         'clipped_input_samples': receiver.mcpr.clipping_detector.clipped_samples(),
+        'duplicate_frames': receiver.mcpr.duplicate_monitor.duplicates(),
     }
 
 
@@ -132,6 +133,22 @@ def test_a_failed_frame_check_is_reported(filename):
     assert result['crc_errors'] == sorted(sample.crc_error_packets)
     # the FCS width has to be declared, or a reader cannot find the check sequence at all
     assert result['fcs_lengths'] == [4]
+
+
+@pytest.mark.parametrize("filename", SAMPLES)
+def test_a_frame_received_twice_is_noticed(filename):
+    """One transmission received on two channels at once must be reported.
+
+    A bit-exact copy passes every check a single frame can be given - its FCS verifies,
+    because the bytes are right - so the only thing that gives it away is having been
+    received already. Everything is still passed on; this only warns.
+    """
+    sample = multi_channel_fileinfo[filename]
+    result = run_isolated(receive, filename, FULL_OVERSAMPLING)
+
+    assert result['duplicate_frames'] == sample.duplicate_frames
+    # and nothing was dropped on account of it
+    assert result['total'] == expected_packet_count(sample)
 
 
 @pytest.mark.parametrize("filename", SAMPLES)

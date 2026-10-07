@@ -94,6 +94,7 @@ MultiChannelSample = namedtuple("MultiChannelSample", [
     "packets_at_default",       # how many the default channelizer oversampling gets
     "clipped_input_samples",    # samples at full scale, i.e. how hard the input was driven
     "crc_error_packets",        # (channel, length) of the frames whose FCS does not verify
+    "duplicate_frames",         # frames received a second time at once, i.e. copies
 ])
 
 multi_channel_fileinfo = {
@@ -125,7 +126,8 @@ multi_channel_fileinfo = {
             },
             packets_at_default=18,
             clipped_input_samples=0,
-            crc_error_packets=[]),
+            crc_error_packets=[],
+            duplicate_frames=0),
     'samples/multi_channel/ping_5x_8Msps_866.7MHz_EU_channel_plan_33_phy_type_1_phy_mode_3_high_gain.cfile':
         MultiChannelSample(
             description=(
@@ -161,7 +163,10 @@ multi_channel_fileinfo = {
             },
             packets_at_default=19,
             clipped_input_samples=10252,
-            crc_error_packets=[(26, 167), (27, 167)]),
+            crc_error_packets=[(26, 167), (27, 167)],
+            # of the three copies only the bit-exact one is found this way; the other two
+            # differ from their originals, which is what their failed FCS says
+            duplicate_frames=1),
 }
 
 
